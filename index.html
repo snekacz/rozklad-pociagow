@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Rozkład Wołomin → Warszawa</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#111;color:#eee;margin:0;padding:20px;text-align:center}
+  #clock{font-size:5em;margin-bottom:20px}
+  #weather{font-size:1.5em;margin-bottom:30px}
+  #trains h2{font-size:1.8em;border-bottom:2px solid #444;padding-bottom:5px;margin-bottom:15px}
+  .train{font-size:1.3em;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div id="clock">--:--</div>
+<div id="weather">Ładowanie pogody...</div>
+<div id="trains">
+  <h2>Najbliższe pociągi KM (Wołomin →)</h2>
+  <div id="train-list">Ładowanie rozkładu…</div>
+</div>
+<script>
+function updateClock(){
+  const n=new Date(), h=n.getHours(), m=n.getMinutes();
+  document.getElementById("clock").textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+}
+setInterval(updateClock,1000); updateClock();
+
+async function fetchWeather(){
+  try{
+    const u='https://api.open-meteo.com/v1/forecast?latitude=52.349&longitude=21.253&current_weather=true&temperature_unit=celsius&timezone=Europe%2FWarsaw';
+    const r=await fetch(u), j=await r.json(), t=j.current_weather.temperature;
+    const desc=["Czyste niebo","Częściowe zachmurzenie","Pochmurno","Całkowite zachmurzenie","Mgła","Lekki deszcz","Deszcz","Śnieg","Przelotny deszcz","Burza"][j.current_weather.weathercode] || "Pogoda nieznana";
+    document.getElementById("weather").textContent = `${desc}, ${t.toFixed(1)}°C`;
+  } catch { document.getElementById("weather").textContent="Błąd pogody"; }
+}
+fetchWeather(); setInterval(fetchWeather,10*60*1000);
+
+async function updateTrains(){
+  try {
+    const r = await fetch("schedule.json");
+    const schedule = await r.json();
+    const n = new Date();
+    const nowMins = n.getHours()*60 + n.getMinutes();
+    const upcoming = schedule.filter(t => {
+      const [h,m] = t.time.split(":").map(Number);
+      const mins = h*60 + m;
+      return mins >= nowMins && mins <= 20*60;
+    }).slice(0,5);
+
+    const c = document.getElementById("train-list");
+    if(upcoming.length === 0){
+      c.textContent = "Brak więcej pociągów dziś.";
+      return;
+    }
+    c.innerHTML = upcoming.map(t => `<div class="train">${t.time} → ${t.dest}</div>`).join("");
+  } catch(e){
+    document.getElementById("train-list").textContent = "Błąd pobierania rozkładu";
+  }
+}
+updateTrains();
+setInterval(updateTrains, 60*1000);
+</script>
+</body>
+</html>
